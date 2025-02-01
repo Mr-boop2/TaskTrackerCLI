@@ -50,7 +50,7 @@ class TaskTracker:
         currentTask["Description"] = description
         currentTask["status"] = status 
         currentTask["Created At"] = dateCreated.strftime("%m/%d/%Y") 
-        currentTask["Reminder Date"] = dateCreated.strftime("%m/%d/%Y") #(dateCreated + timedelta(1)).strftime("%m/%d/%Y")
+        currentTask["Reminder Date"] = (dateCreated + timedelta(1)).strftime("%m/%d/%Y")
         currentTask["Updated At"] = dateUpdated
         return currentTask 
 
