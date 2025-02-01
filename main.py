@@ -2,8 +2,6 @@ import json
 from datetime import * 
 from argparse import * 
 import sqlite3 
-from mailer import autoMail
-
 
 parser = ArgumentParser() 
 parser.add_argument("-add", help="adds a new task",type=str)
@@ -41,7 +39,6 @@ class TaskTracker:
                 status = 'todo'
         except Exception as e: 
             print(e)
-            print("Enter an integer")
         return status  
                             
     def createProperties(self,taskName,description,status,dateCreated,dateUpdated=None): 
@@ -69,7 +66,7 @@ class TaskTracker:
                         self.DB.delEntry(userInput)
             except Exception as e: 
                 print(e)
-                print("Please enter an integer!")
+
 
 
     def updateTaskStatus(self): 
@@ -79,7 +76,14 @@ class TaskTracker:
         try: 
             updatedDate = datetime.today().strftime("%b %d %Y")
             userInput = int(input("Enter the ID of the task you'd like to update: "))
-            
+            resultList = self.DB.getEntries()
+            for result in resultList:
+                if result[0] == userInput: 
+                    taskObject = json.loads(result[1])
+                    print(f"Current Task Status: {taskObject["status"]}")
+                    taskObject["status"] = self.setTaskStatus()
+                    self.DB.updateDB(json.dumps(taskObject),userInput)
+            self.taskList()
         except Exception as e: 
             print(e)
             print("Please enter an integer!")
@@ -87,16 +91,21 @@ class TaskTracker:
     def updateTaskDesc(self):
         #get the task json result. Create a copy of the result with the updated description. 
         #Then put the copied task back into the spot of the original task replacing it. 
-        self.taskList() 
+        self.taskList()
         try: 
             updatedDate = datetime.today().strftime("%b %d %Y")
             userInput = int(input("Enter the ID of the task you'd like to update: "))
-            result = self.DB.updateTaskStatus()
-            taskJson = json.loads(result[1])
-            taskJson["Description"] = input("Enter your new description:\n")
+            resultList = self.DB.getEntries()
+            for result in resultList:
+                if result[0] == userInput: 
+                    taskObject = json.loads(result[1])
+                    print(f"Current Task Description: {taskObject["Description"]}")
+                    taskObject["Description"] = input("New description: ")
+                    self.DB.updateDB(json.dumps(taskObject),userInput)
+            self.taskList()
         except Exception as e: 
-            print(f"{e}, Please enter an integer!")
-
+            print(e)
+            print("Please enter an integer!")
                       
     def taskList(self): 
         resultList = self.DB.getEntries() 
@@ -119,7 +128,11 @@ class TaskTracker:
                 print(f"Task: {task["Name"].title()} \n\tID: {result[0]} \n\tDescription: {task["Description"]} \n\tStatus: {task["status"]} \n\tCreated: {task["Created At"]}") 
     
     def taskListDone(self): 
-        pass 
+        resultList = self.DB.getEntries() 
+        for result in resultList: 
+            task = json.loads(result[1])
+            if task["status"].lower() == "done":
+                print(f"Task: {task["Name"].title()} \n\tID: {result[0]} \n\tDescription: {task["Description"]} \n\tStatus: {task["status"]} \n\tCreated: {task["Created At"]}") 
 
 class DBConnection: 
     def __init__(self): 
@@ -132,14 +145,14 @@ class DBConnection:
         self.conn.commit()
     def getEntries(self):
         results = self.cur.execute("SELECT * from TrackingTable")
-        testing = results.fetchall()
-        return testing
+        entries = results.fetchall()
+        return entries
     def delEntry(self,taskID):
         self.cur.execute("DELETE FROM TrackingTable WHERE TaskID == (?)", (taskID,))
         self.conn.commit()
-    def updateTaskStatus(self,taskID): 
-        result = self.cur.execute("SELECT FROM TrackingTable WHERE TaskID == (?)", (taskID,))
-        return result
+    def updateDB(self,jsonObject, taskID):
+        self.cur.execute("UPDATE TrackingTable SET (JsonData) = (?) WHERE TaskID == (?)", (jsonObject,taskID))
+        self.conn.commit()
 
 def main(): 
     FirstTask = TaskTracker()
@@ -154,12 +167,14 @@ def main():
     if args.listtd:
         FirstTask.taskListTodo()
     if args.listip: 
-        FirstTask.taskListInProgress() 
+        FirstTask.taskListInProgress()
+    if args.listdone:
+        FirstTask.taskListDone() 
     if args.removeall:
         FirstTask.deleteTask(True)
-    if args.setreminders:
-        secondsFrequency = int(input("Enter the frequency in days: "))
-        daysFrequency = (secondsFrequency*60*60*24)
-        print(daysFrequency)
+    if args.ustatus:
+        FirstTask.updateTaskStatus()
+    if args.udesc:
+        FirstTask.updateTaskDesc()
 
 main()
